@@ -1,6 +1,9 @@
 #define PWM1 13
 #define INA1 12
 #define INB1 14
+#define PWM2
+#define INA2
+#define INB2
 #define Encoder_A 32
 #define Encoder_B 33
 
