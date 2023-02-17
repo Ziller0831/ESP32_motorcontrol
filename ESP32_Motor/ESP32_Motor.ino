@@ -5,33 +5,35 @@
 #define Encoder_B 33
 
 hw_timer_t *timer = NULL; // 建立計時器物件
+/* 宣告任務變數 */
+TaskHandle_t Task_Motorcontrol;
 
 volatile long Encoder_R;
-int Vel_Right;
-unsigned long RightMotor_Speed;
-void EncoderISR(){
-  sei();
-  Vel_Right = Encoder_R;
-  RightMotor_Speed = Vel_Right / 13 * 60;
-  Encoder_R = 0;
-}
+long RightMotor_RPM, Left;
+int Vel_Right, Vel_Left;
+int PPR = 13;               // Encoder 1圈pulse數
 
-void READ_ENCODER_R(){
-  if(digitalRead(Encoder_A) == LOW){
-    if(digitalRead(Encoder_B) == LOW)
-      Encoder_R++;
-    else
-      Encoder_R--;
-  } else{
-    if(digitalRead(Encoder_B) == LOW)
-      Encoder_R--;
-    else
-      Encoder_R++;
+
+void Motor_control(void * pvParameters){
+  Serial.print("Task_Motorcontrol running on core");
+  Serial.println(xPortGetCoreID());
+  int i;
+  for(;;){
+    digitalWrite(INA1, LOW);
+    digitalWrite(INB1, HIGH);
+    // for(i=80 ; i<=255 ; i++){
+      ledcWrite(0, 255);
+      // Serial.print("Motor PWM: ");
+      // Serial.println(i);
+      vTaskDelay(200);
+    // }
   }
 }
 
 void setup() {
   Serial.begin(115200);
+  setCpuFrequencyMhz(240);
+
   pinMode(PWM1, OUTPUT);
   pinMode(INA1, OUTPUT);
   pinMode(INB1, OUTPUT);
@@ -46,19 +48,18 @@ void setup() {
   ledcSetup(0, 5000, 8);
   ledcAttachPin(PWM1, 0);
 
+  xTaskCreatePinnedToCore(Motor_control, "Motor Control", 10000, NULL, 1, &Task_Motorcontrol, 1);
+  delay(500);
+
   attachInterrupt(Encoder_A, READ_ENCODER_R, CHANGE);
   timer = timerBegin(0, 80, true);
   timerAttachInterrupt(timer, &EncoderISR, true);
-  timerAlarmWrite(timer, 5000, true);
+  timerAlarmWrite(timer, 10000, true);
   timerAlarmEnable(timer);
 }
 
 void loop() {
-  digitalWrite(INA1, LOW);
-  digitalWrite(INB1, HIGH);
-  for(int i = 80 ; i <= 255 ; i++){
-    ledcWrite(0, i);
-    Serial.print("Right motor:");
-    Serial.println(RightMotor_Speed);
-  }
+  Serial.print("Right motor:");
+  Serial.println(Vel_Right);
+  vTaskDelay(200);
 }
