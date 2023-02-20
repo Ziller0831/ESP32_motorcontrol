@@ -4,16 +4,19 @@ void EncoderISR(){
   Encoder_R = 0;
 }
 
-void READ_ENCODER_R(){
-  if(digitalRead(Encoder_A) == LOW){
-    if(digitalRead(Encoder_B) == LOW)
+void READ_ENC_R(){
+  if(digitalRead(L_ENC_A) == LOW){
+    if(digitalRead(L_ENC_B) == LOW)
       Encoder_R++;
     else
       Encoder_R--;
   } else{
-    if(digitalRead(Encoder_B) == LOW)
+    if(digitalRead(L_ENC_B) == LOW)
       Encoder_R--;
     else
       Encoder_R++;
   }
+}
+void READ_ENC_L(){
+  
 }
