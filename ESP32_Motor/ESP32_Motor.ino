@@ -1,5 +1,6 @@
 #include <ros.h>
-
+#include <std_msgs/Int16.h>
+#include <geometry_msgs/Twist.h>
 
 /* Left_motorctrl pin define */
 #define PWM1 27
@@ -27,53 +28,68 @@ TaskHandle_t Task_Motorcontrol;
 
 ros::NodeHandle nh;
 
-volatile long Encoder_R, Encoder_L;
+ros::Subscriber<geometry_msgs::Twist> subCmdVel("cmd_vel", &Speed_calc);
+
+std_msgs::Int16 right_wheel_tick_count;
+ros::Publisher rightPub("right_ENC", &right_wheel_tick_count);
+
+std_msgs::Int16 left_wheel_tick_count;
+ros::Publusher leftPub("left_ENC", &left_wheel_tick_count);
+
+const int PWM_TurnSpeed = 80;
+const int PWM_MIN = 80;
+const int PWM_MAX = 100;
+volatile long Encoder_R;
+volatile long Encoder_L;
 double LeftMotor_RPM;
 double RightMotor_RPM;
-int Vel_Right, Vel_Left;
-int PPR = 13;               // Encoder 1圈pulse數
+int RighENCt_Vel;
+int LeftENC_Vel;
+int PPR = 13; // Encoder 1圈pulse數
 int N = 71;
 
-
-void Motor_control(void * pvParameters){
-  // Serial.print("Task_Motorcontrol running on core");
-  // Serial.println(xPortGetCoreID());
-  int i;
+// -- Motor control Function ------------------------------------------------
+void Speed_calc(void * pvParametersm){
   for(;;){
     digitalWrite(INA1, LOW);
     digitalWrite(INB1, HIGH);
     digitalWrite(INA2, LOW);
     digitalWrite(INB2, HIGH);
-    // for(i=80 ; i<=255 ; i++){
-      ledcWrite(0, 255);
-      ledcWrite(1, 255);
-      // Serial.print("Motor PWM: ");
-      // Serial.println(i);
-      vTaskDelay(200);
-    // }
+    ledcWrite(0, 255);
+    ledcWrite(1, 255);
+    vTaskDelay(200);
   }
 }
 
-/* 轉速計算： 
-  轉速(RPM) = trigger_count * 擷取頻率的時間轉換至1s的倍數 * 分鐘轉換 / (Encoder線數 * 減速比 * 中斷觸發方式(RISING, FALLING為1, CHANGE為2))
-*/
+void Motor_control(){
+
+}
+
+// -- Encoder Function ------------------------------------------------
 void IRAM_ATTR R_EncoderISR(){
   portENTER_CRITICAL(&mux0);
-  Vel_Right = Encoder_R;
-  RightMotor_RPM = Vel_Right * 0.065;  
+  RightENC_Vel = Encoder_R;
+  RightMotor_RPM = RightENC_Vel * 0.065;
   Encoder_R = 0;
   portEXIT_CRITICAL(&mux0);
 }
 
 void IRAM_ATTR L_EncoderISR(){
   portENTER_CRITICAL(&mux1);
-  Vel_Left = Encoder_L;
-  LeftMotor_RPM = Vel_Left * 0.065;
+  LeftENC_Vel = Encoder_L;
+  LeftMotor_RPM = LeftENC_Vel * 0.065;
   Encoder_L = 0;
   portEXIT_CRITICAL(&mux1);
 }
 
-void READ_ENC_R(){
+/* 轉速計算：
+  轉速(RPM) =
+       trigger_count * 擷取頻率的時間轉換至1s的倍數 * 分鐘轉換
+  ---------------------------------------------------------------- (This is division sign)
+  (Encoder線數 * 減速比 * 中斷觸發方式(RISING, FALLING為1, CHANGE為2))
+*/
+
+void READ_ENC_Right(){
   if(digitalRead(R_ENC_A) == LOW){
     if(digitalRead(R_ENC_B) == LOW)
       Encoder_R--;
@@ -87,7 +103,7 @@ void READ_ENC_R(){
   }
 }
 
-void READ_ENC_L(){
+void READ_ENC_Left(){
   if(digitalRead(L_ENC_A) == LOW){
     if(digitalRead(L_ENC_B) == LOW)
       Encoder_L--;
@@ -133,9 +149,13 @@ void setup() {
 
   Controller_Pinsetup();
 
+  nh.getHardware()->setBaud(115200);
   nh.initNode();
+  nh.advertise(rightPub);
+  nh.advertise(leftPub);
+  nh.subscribe(subCmdVel);
 
-  xTaskCreatePinnedToCore(Motor_control, "Motor Control", 10000, NULL, 1, &Task_Motorcontrol, 1);
+  xTaskCreatePinnedToCore(, "Motor Control", 10000, NULL, 1, &Task_Motorcontrol, 1);
   vTaskDelay(500);
 
   attachInterrupt(R_ENC_A, READ_ENC_R, CHANGE);
