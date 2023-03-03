@@ -23,8 +23,9 @@ portMUX_TYPE mux1 = portMUX_INITIALIZER_UNLOCKED;
 hw_timer_t * timer_R = NULL;
 hw_timer_t * timer_L = NULL;
 
-/* 宣告任務變數 */
+/* 宣告任務句柄 */
 TaskHandle_t Task_Motorcontrol;
+TaskHandle_t Task_Speedcalc;
 
 ros::NodeHandle nh;
 
@@ -43,14 +44,15 @@ volatile long Encoder_R;
 volatile long Encoder_L;
 double LeftMotor_RPM;
 double RightMotor_RPM;
-int RighENCt_Vel;
+int RighENC_Vel;
 int LeftENC_Vel;
-int PPR = 13; // Encoder 1圈pulse數
-int N = 71;
+
+int PPR = 13; // Encoder Pulse per Rev 
+int Reduction_Ratio = 71;
 
 // -- Motor control Function ------------------------------------------------
 void Speed_calc(void * pvParametersm){
-  for(;;){
+  while(ture){
     digitalWrite(INA1, LOW);
     digitalWrite(INB1, HIGH);
     digitalWrite(INA2, LOW);
@@ -63,7 +65,7 @@ void Speed_calc(void * pvParametersm){
 
 void Motor_control(){
 
-}
+}*-
 
 // -- Encoder Function ------------------------------------------------
 void IRAM_ATTR R_EncoderISR(){
@@ -90,12 +92,13 @@ void IRAM_ATTR L_EncoderISR(){
 */
 
 void READ_ENC_Right(){
-  if(digitalRead(R_ENC_A) == LOW){
+   
+  if(digitalRead(R_ENC_A) == LOW){    // 正轉
     if(digitalRead(R_ENC_B) == LOW)
       Encoder_R--;
     else
       Encoder_R++;
-  } else{
+  } else{                             // 反轉
     if(digitalRead(R_ENC_B) == LOW)
       Encoder_R++;
     else
@@ -158,15 +161,16 @@ void setup() {
   xTaskCreatePinnedToCore(, "Motor Control", 10000, NULL, 1, &Task_Motorcontrol, 1);
   vTaskDelay(500);
 
-  attachInterrupt(R_ENC_A, READ_ENC_R, CHANGE);
+  attachInterrupt(R_ENC_A, READ_ENC_Right(), CHANGE);
   timer_R = timerBegin(0, 80, true);                  // timer為80MHz的頻率，因此需要分頻成1MHz，計時器的step為1us(1*10^-6Hz)
   
   timerAttachInterrupt(timer_R, &R_EncoderISR, true);
   timerAlarmWrite(timer_R, 500000, true);             // 500000 = 500 ms
   timerAlarmEnable(timer_R);
 
-  attachInterrupt(L_ENC_A, READ_ENC_L, CHANGE);
+  attachInterrupt(L_ENC_A, READ_ENC_Left(), CHANGE);
   timer_L = timerBegin(1, 80, true);
+
   timerAttachInterrupt(timer_L, &L_EncoderISR, true);
   timerAlarmWrite(timer_L, 500000, true);
   timerAlarmEnable(timer_L);
