@@ -1,6 +1,6 @@
-#include <ros.h>
-#include <std_msgs/Int16.h>
-#include <geometry_msgs/Twist.h>
+// #include <ros.h>
+// #include <std_msgs/Int16.h>
+// #include <geometry_msgs/Twist.h>
 
 /* Left_motorctrl pin define */
 #define PWM1 27
@@ -26,16 +26,19 @@ hw_timer_t * timer_L = NULL;
 /* 宣告任務句柄 */
 TaskHandle_t Task_Motorcontrol;
 TaskHandle_t Task_Speedcalc;
+TaskHandle_t Task_R_ENC_tick;
+TaskHandle_t Task_L_ENC_tick;
+TaskHandle_t Task_Message_out;
 
-ros::NodeHandle nh;
+// ros::NodeHandle nh;
 
-ros::Subscriber<geometry_msgs::Twist> subCmdVel("cmd_vel", &Speed_calc);
+// ros::Subscriber<geometry_msgs::Twist> subCmdVel("cmd_vel", &Speed_calc);
 
-std_msgs::Int16 right_wheel_tick_count;
-ros::Publisher rightPub("right_ENC", &right_wheel_tick_count);
+// std_msgs::Int16 right_wheel_tick_count;
+// ros::Publisher rightPub("right_ENC", &right_wheel_tick_count);
 
-std_msgs::Int16 left_wheel_tick_count;
-ros::Publusher leftPub("left_ENC", &left_wheel_tick_count);
+// std_msgs::Int16 left_wheel_tick_count;
+// ros::Publusher leftPub("left_ENC", &left_wheel_tick_count);
 
 const int PWM_TurnSpeed = 80;
 const int PWM_MIN = 80;
@@ -51,24 +54,46 @@ int PPR = 13; // Encoder Pulse per Rev
 int Reduction_Ratio = 71;
 
 // -- Motor control Function ------------------------------------------------
-void Speed_calc(void * pvParametersm){
-  while(ture){
+// void Speed_calc(void * pvParametersm){
+//   while(ture){
+//     digitalWrite(INA1, LOW);
+//     digitalWrite(INB1, HIGH);
+//     digitalWrite(INA2, LOW);
+//     digitalWrite(INB2, HIGH);
+//     ledcWrite(0, 255);
+//     ledcWrite(1, 255);
+//     vTaskDelay(200);
+//   }
+// }
+
+void Motor_control(void *pvParameters)
+{
+  Serial.print("Task_Motorcontrol running on core");
+  Serial.println(xPortGetCoreID());
+  // Serial.print("Task_Motorcontrol running on core");
+  // Serial.println(xPortGetCoreID());
+  int i;
+  for (;;)
+  {
     digitalWrite(INA1, LOW);
     digitalWrite(INB1, HIGH);
     digitalWrite(INA2, LOW);
     digitalWrite(INB2, HIGH);
-    ledcWrite(0, 255);
-    ledcWrite(1, 255);
-    vTaskDelay(200);
+    for (i = 80; i <= 255; i++)
+    {
+      // for(i=80 ; i<=255 ; i++){
+      ledcWrite(0, 255);
+      ledcWrite(1, 255);
+      // Serial.print("Motor PWM: ");
+      // Serial.println(i);
+      vTaskDelay(200);
+    }
+    // }
   }
 }
 
-void Motor_control(){
-
-}*-
-
 // -- Encoder Function ------------------------------------------------
-void IRAM_ATTR R_EncoderISR(){
+void IRAM_ATTR R_EncoderISR(void *pvParametersm){
   portENTER_CRITICAL(&mux0);
   RightENC_Vel = Encoder_R;
   RightMotor_RPM = RightENC_Vel * 0.065;
@@ -76,7 +101,7 @@ void IRAM_ATTR R_EncoderISR(){
   portEXIT_CRITICAL(&mux0);
 }
 
-void IRAM_ATTR L_EncoderISR(){
+void IRAM_ATTR L_EncoderISR(void *pvParametersm){
   portENTER_CRITICAL(&mux1);
   LeftENC_Vel = Encoder_L;
   LeftMotor_RPM = LeftENC_Vel * 0.065;
@@ -91,8 +116,7 @@ void IRAM_ATTR L_EncoderISR(){
   (Encoder線數 * 減速比 * 中斷觸發方式(RISING, FALLING為1, CHANGE為2))
 */
 
-void READ_ENC_Right(){
-   
+void READ_ENC_Right(void *pvParametersm){
   if(digitalRead(R_ENC_A) == LOW){    // 正轉
     if(digitalRead(R_ENC_B) == LOW)
       Encoder_R--;
@@ -106,7 +130,7 @@ void READ_ENC_Right(){
   }
 }
 
-void READ_ENC_Left(){
+void READ_ENC_Left(void *pvParametersm){
   if(digitalRead(L_ENC_A) == LOW){
     if(digitalRead(L_ENC_B) == LOW)
       Encoder_L--;
@@ -152,13 +176,16 @@ void setup() {
 
   Controller_Pinsetup();
 
-  nh.getHardware()->setBaud(115200);
-  nh.initNode();
-  nh.advertise(rightPub);
-  nh.advertise(leftPub);
-  nh.subscribe(subCmdVel);
+  // nh.getHardware()->setBaud(115200);
+  // nh.initNode();
+  // nh.advertise(rightPub);
+  // nh.advertise(leftPub);
+  // nh.subscribe(subCmdVel);
 
-  xTaskCreatePinnedToCore(, "Motor Control", 10000, NULL, 1, &Task_Motorcontrol, 1);
+  xTaskCreatePinnedToCore(Motor_control, "Motor Control", 10000, NULL, 1, &Task_Motorcontrol, 1);
+  xTaskCreatePinnedToCore();
+  xTaskCreatePinnedToCore();
+  xTaskCreatePinnedToCore();
   vTaskDelay(500);
 
   attachInterrupt(R_ENC_A, READ_ENC_Right(), CHANGE);

@@ -158,13 +158,9 @@ void ROS_messageRecivTask(void *pvParam)
 void cmd_velocity_receiv(const geometry_msgs::Twist &cmdVel)
 {
     lastCmdVelRecivTime = (millis() / 1000);
-
-
-    Left_PWM_Req = Kp * map(cmdVel.linear.x, -10, 10, -250, 250) + b;
-    Right_PWM_Req = Kp * map(cmdVel.linear.x, -10, 10, -250, 250) + b;
-
-    test_message.data = Right_PWM_Req;
-
+    Left_PWM_Req = Kp * cmdVel.linear.x + b;
+    Right_PWM_Req = Kp * cmdVel.linear.x + b;
+    test_message.data = cmdVel.linear.x;
     if (cmdVel.angular.z != 0.0){
         if (cmdVel.angular.z > 0.0){
             Left_PWM_Req = -PWM_turn;
@@ -241,31 +237,30 @@ void Motor_control(void *pvParam)
     }
 
     if (Left_PWM_Req != 0 && Left_MT_Vel == 0)
-        Left_PWM_Req *= 1.5;
-    if (Right_PWM_Req != 0 && Right_MT_Vel == 0)
-        Right_PWM_Req *= 1.5;
+           Left_PWM_Req *= 1.5;
+       if (Right_PWM_Req != 0 && Right_MT_Vel == 0)
+            Right_PWM_Req *= 1.5;
 
-    if (abs(Left_PWM_Req) > L_PWM_out)
-        L_PWM_out += PWM_Increment;
-    else if (abs(Left_PWM_Req) < L_PWM_out)
-        L_PWM_out -= PWM_Increment;
+        if (abs(Left_PWM_Req) > L_PWM_out)
+            L_PWM_out += PWM_Increment;
+        else if (abs(Left_PWM_Req) < L_PWM_out)
+            L_PWM_out -= PWM_Increment;
 
-    if (abs(Right_PWM_Req) > R_PWM_out)
-        R_PWM_out += PWM_Increment;
-    else if (abs(Right_PWM_Req) < L_PWM_out)
-        R_PWM_out -= PWM_Increment;
+        if (abs(Right_PWM_Req) > R_PWM_out)
+            R_PWM_out += PWM_Increment;
+        else if (abs(Right_PWM_Req) < L_PWM_out)
+            R_PWM_out -= PWM_Increment;
 
-    L_PWM_out = (L_PWM_out > PWM_MAX) ? PWM_MAX : L_PWM_out;
-    R_PWM_out = (R_PWM_out > PWM_MAX) ? PWM_MAX : R_PWM_out;
+        L_PWM_out = (L_PWM_out > PWM_MAX) ? PWM_MAX : L_PWM_out;
+        R_PWM_out = (R_PWM_out > PWM_MAX) ? PWM_MAX : R_PWM_out;
 
-    L_PWM_out = (L_PWM_out < 0) ? 0 : L_PWM_out;
-    R_PWM_out = (R_PWM_out < 0) ? 0 : R_PWM_out;
+        L_PWM_out = (L_PWM_out < 0) ? 0 : L_PWM_out;
+        R_PWM_out = (R_PWM_out < 0) ? 0 : R_PWM_out;
 
-    ledcWrite(0, L_PWM_out);
+        ledcWrite(0, L_PWM_out);
     ledcWrite(1, R_PWM_out);
     vTaskDelay(1000/portTICK_PERIOD_MS);
-
-
+    }
     vTaskDelete(NULL);
 }
 

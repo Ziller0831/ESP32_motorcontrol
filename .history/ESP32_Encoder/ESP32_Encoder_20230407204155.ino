@@ -160,10 +160,10 @@ void cmd_velocity_receiv(const geometry_msgs::Twist &cmdVel)
     lastCmdVelRecivTime = (millis() / 1000);
 
 
-    Left_PWM_Req = Kp * map(cmdVel.linear.x, -10, 10, -250, 250) + b;
-    Right_PWM_Req = Kp * map(cmdVel.linear.x, -10, 10, -250, 250) + b;
+    Left_PWM_Req = Kp * map(cmdVel.linear.x + b;
+    Right_PWM_Req = Kp * cmdVel.linear.x + b;
 
-    test_message.data = Right_PWM_Req;
+    test_message.data = cmdVel.linear.x;
 
     if (cmdVel.angular.z != 0.0){
         if (cmdVel.angular.z > 0.0){
@@ -265,6 +265,7 @@ void Motor_control(void *pvParam)
     ledcWrite(1, R_PWM_out);
     vTaskDelay(1000/portTICK_PERIOD_MS);
 
+    test_message.data = L_PWM_out;
 
     vTaskDelete(NULL);
 }

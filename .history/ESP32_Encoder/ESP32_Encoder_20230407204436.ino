@@ -160,10 +160,9 @@ void cmd_velocity_receiv(const geometry_msgs::Twist &cmdVel)
     lastCmdVelRecivTime = (millis() / 1000);
 
 
-    Left_PWM_Req = Kp * map(cmdVel.linear.x, -10, 10, -250, 250) + b;
-    Right_PWM_Req = Kp * map(cmdVel.linear.x, -10, 10, -250, 250) + b;
+    Left_PWM_Req = Kp * map(cmdVel.linear.x, -10, 10, -255, 255) + b;
+    Right_PWM_Req = Kp * map(cmdVel.linear.x, -10, 10, -255, 255) + b;
 
-    test_message.data = Right_PWM_Req;
 
     if (cmdVel.angular.z != 0.0){
         if (cmdVel.angular.z > 0.0){

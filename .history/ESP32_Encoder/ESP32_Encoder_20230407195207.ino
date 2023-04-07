@@ -86,8 +86,8 @@ void IRAM_ATTR Publish()
 {
     rightPub.publish(&right_wheel_tick);
     leftPub.publish(&left_wheel_tick);
-    // if (test_message.data == nullptr)
-    //     test_message.data = 0;
+    if (test_message.data)
+        test_message.data = 0;
     testPub.publish(&test_message);
 }
 
@@ -157,47 +157,39 @@ void ROS_messageRecivTask(void *pvParam)
 
 void cmd_velocity_receiv(const geometry_msgs::Twist &cmdVel)
 {
-    lastCmdVelRecivTime = (millis() / 1000);
+    while(1)
+    {
+        lastCmdVelRecivTime = (millis() / 1000);
 
+        Left_PWM_Req = Kp * cmdVel.linear.x + b;
+        Right_PWM_Req = Kp * cmdVel.linear.x + b;
+        test_message.data = cmdVel.linear.x;
 
-    Left_PWM_Req = Kp * map(cmdVel.linear.x, -10, 10, -250, 250) + b;
-    Right_PWM_Req = Kp * map(cmdVel.linear.x, -10, 10, -250, 250) + b;
-
-    test_message.data = Right_PWM_Req;
-
-    if (cmdVel.angular.z != 0.0){
-        if (cmdVel.angular.z > 0.0){
-            Left_PWM_Req = -PWM_turn;
-            Right_PWM_Req = PWM_turn;
+        if (cmdVel.angular.z != 0.0){
+            if (cmdVel.angular.z > 0.0){
+                Left_PWM_Req = -PWM_turn;
+                Right_PWM_Req = PWM_turn;
+            } else{
+                Left_PWM_Req = PWM_turn;
+                Right_PWM_Req = -PWM_turn;
+            }
         } else{
-            Left_PWM_Req = PWM_turn;
-            Right_PWM_Req = -PWM_turn;
-        }
-    } else{
-        static double PrevDiff = 0;     // 前一次速差
-        static double Dub_prevDiff = 0; // 前前次速差
-        double currDiff = Left_MT_Vel - Right_MT_Vel;
-        double avgDiff = (PrevDiff + Dub_prevDiff + currDiff) / 3;
-        Dub_prevDiff = PrevDiff;
-        PrevDiff = currDiff;
-        Left_PWM_Req -= (int)(avgDiff * Drift_muliplier);
-        Right_PWM_Req += (int)(avgDiff * Drift_muliplier);
-    }
-    if (abs(Left_PWM_Req) < PWM_MIN)
-        Left_PWM_Req = 0;
-    if (abs(Right_PWM_Req) < PWM_MIN)
-        Right_PWM_Req = 0;
-    
-    xTaskCreatePinnedToCore(
-        Motor_control,
-        "Core 0: Motor control",
-        1024,
-        NULL,
-        10,
-        &Task_Motorcontrol,
-        0
-    );
+            static double PrevDiff = 0;     // 前一次速差
+            static double Dub_prevDiff = 0; // 前前次速差
+            double currDiff = Left_MT_Vel - Right_MT_Vel;
+            double avgDiff = (PrevDiff + Dub_prevDiff + currDiff) / 3;
+            Dub_prevDiff = PrevDiff;
+            PrevDiff = currDiff;
 
+            Left_PWM_Req -= (int)(avgDiff * Drift_muliplier);
+            Right_PWM_Req += (int)(avgDiff * Drift_muliplier);
+        }
+
+        if (abs(Left_PWM_Req) < PWM_MIN)
+            Left_PWM_Req = 0;
+        if (abs(Right_PWM_Req) < PWM_MIN)
+            Right_PWM_Req = 0;
+    }
 }
 
 void Motor_control(void *pvParam)
@@ -205,68 +197,66 @@ void Motor_control(void *pvParam)
     static int L_PWM_out = 0;
     static int R_PWM_out = 0;
 
-    
-    if ((Left_PWM_Req * Left_MT_Vel < 0 && L_PWM_out != 0) ||
-        (Right_PWM_Req * Right_MT_Vel < 0 && R_PWM_out != 0)){
-        Left_PWM_Req = 0;
-        Right_PWM_Req = 0;
+    while(1){
+        if ((Left_PWM_Req * Left_MT_Vel < 0 && L_PWM_out != 0) ||
+            (Right_PWM_Req * Right_MT_Vel < 0 && R_PWM_out != 0)){
+            Left_PWM_Req = 0;
+            Right_PWM_Req = 0;
+        }
+
+        if (Left_PWM_Req > 0){
+            digitalWrite(INA1, HIGH);
+            digitalWrite(INB1, LOW);
+        } else if (Left_PWM_Req < 0){
+            digitalWrite(INA1, LOW);
+            digitalWrite(INB1, HIGH);
+        } else if (Right_PWM_Req == 0 && L_PWM_out == 0){
+            digitalWrite(INA1, LOW);
+            digitalWrite(INB1, LOW);
+        } else{
+            digitalWrite(INA1, LOW);
+            digitalWrite(INB1, LOW);
+        }
+
+        if (Right_PWM_Req > 0){
+            digitalWrite(INA2, HIGH);
+            digitalWrite(INB2, LOW);
+        } else if (Right_PWM_Req < 0){
+            digitalWrite(INA2, LOW);
+            digitalWrite(INB2, HIGH);
+        } else if (Right_PWM_Req == 0 && R_PWM_out == 0){
+            digitalWrite(INA2, LOW);
+            digitalWrite(INB2, LOW);
+        } else{
+            digitalWrite(INA2, LOW);
+            digitalWrite(INB2, LOW);
+        }
+
+        if (Left_PWM_Req != 0 && Left_MT_Vel == 0)
+            Left_PWM_Req *= 1.5;
+        if (Right_PWM_Req != 0 && Right_MT_Vel == 0)
+            Right_PWM_Req *= 1.5;
+
+        if (abs(Left_PWM_Req) > L_PWM_out)
+            L_PWM_out += PWM_Increment;
+        else if (abs(Left_PWM_Req) < L_PWM_out)
+            L_PWM_out -= PWM_Increment;
+
+        if (abs(Right_PWM_Req) > R_PWM_out)
+            R_PWM_out += PWM_Increment;
+        else if (abs(Right_PWM_Req) < L_PWM_out)
+            R_PWM_out -= PWM_Increment;
+
+        L_PWM_out = (L_PWM_out > PWM_MAX) ? PWM_MAX : L_PWM_out;
+        R_PWM_out = (R_PWM_out > PWM_MAX) ? PWM_MAX : R_PWM_out;
+
+        L_PWM_out = (L_PWM_out < 0) ? 0 : L_PWM_out;
+        R_PWM_out = (R_PWM_out < 0) ? 0 : R_PWM_out;
+
+        ledcWrite(0, L_PWM_out);
+        ledcWrite(1, R_PWM_out);
+        vTaskDelay(1000/portTICK_PERIOD_MS);
     }
-
-    if (Left_PWM_Req > 0){
-        digitalWrite(INA1, HIGH);
-        digitalWrite(INB1, LOW);
-    } else if (Left_PWM_Req < 0){
-        digitalWrite(INA1, LOW);
-        digitalWrite(INB1, HIGH);
-    } else if (Right_PWM_Req == 0 && L_PWM_out == 0){
-        digitalWrite(INA1, LOW);
-        digitalWrite(INB1, LOW);
-    } else{
-        digitalWrite(INA1, LOW);
-        digitalWrite(INB1, LOW);
-    }
-
-    if (Right_PWM_Req > 0){
-        digitalWrite(INA2, HIGH);
-        digitalWrite(INB2, LOW);
-    } else if (Right_PWM_Req < 0){
-        digitalWrite(INA2, LOW);
-        digitalWrite(INB2, HIGH);
-    } else if (Right_PWM_Req == 0 && R_PWM_out == 0){
-        digitalWrite(INA2, LOW);
-        digitalWrite(INB2, LOW);
-    } else{
-        digitalWrite(INA2, LOW);
-        digitalWrite(INB2, LOW);
-    }
-
-    if (Left_PWM_Req != 0 && Left_MT_Vel == 0)
-        Left_PWM_Req *= 1.5;
-    if (Right_PWM_Req != 0 && Right_MT_Vel == 0)
-        Right_PWM_Req *= 1.5;
-
-    if (abs(Left_PWM_Req) > L_PWM_out)
-        L_PWM_out += PWM_Increment;
-    else if (abs(Left_PWM_Req) < L_PWM_out)
-        L_PWM_out -= PWM_Increment;
-
-    if (abs(Right_PWM_Req) > R_PWM_out)
-        R_PWM_out += PWM_Increment;
-    else if (abs(Right_PWM_Req) < L_PWM_out)
-        R_PWM_out -= PWM_Increment;
-
-    L_PWM_out = (L_PWM_out > PWM_MAX) ? PWM_MAX : L_PWM_out;
-    R_PWM_out = (R_PWM_out > PWM_MAX) ? PWM_MAX : R_PWM_out;
-
-    L_PWM_out = (L_PWM_out < 0) ? 0 : L_PWM_out;
-    R_PWM_out = (R_PWM_out < 0) ? 0 : R_PWM_out;
-
-    ledcWrite(0, L_PWM_out);
-    ledcWrite(1, R_PWM_out);
-    vTaskDelay(1000/portTICK_PERIOD_MS);
-
-
-    vTaskDelete(NULL);
 }
 
 /* 
@@ -304,11 +294,20 @@ void setup()
         "Core 0: ROS message recieve",
         10000,
         NULL,
-        9,
+        10,
         &Task_MessageReceive,
         0
     );
 
+    xTaskCreatePinnedToCore(
+        Motor_control,
+        "Core 0: Motor control",
+        1024,
+        NULL,
+        9,
+        &Task_Motorcontrol,
+        0
+    );
 
     attachInterrupt(R_ENC_A, READ_ENC_Right, CHANGE);
     timer_R = timerBegin(0, 80, true); // timer為80MHz的頻率，因此需要分頻成1MHz，計時器的step為1us(1*10^-6Hz)
@@ -331,7 +330,6 @@ void setup()
     nh.initNode();
     nh.advertise(rightPub);
     nh.advertise(leftPub);
-    nh.advertise(testPub);
     nh.subscribe(subCmdVel);
 }
 
