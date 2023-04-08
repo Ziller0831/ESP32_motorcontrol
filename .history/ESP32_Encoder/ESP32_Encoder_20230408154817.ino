@@ -110,14 +110,14 @@ void READ_ENC_Left()
 {
     if(digitalRead(L_ENC_A) == LOW){
         if(digitalRead(L_ENC_B) == LOW)
-            Encoder_L--;
-        else
             Encoder_L++;
+        else
+            Encoder_L--;
     } else{
         if(digitalRead(L_ENC_B) == LOW)
-            Encoder_L++;
-        else
             Encoder_L--;
+        else
+            Encoder_L++;
     }
 }
 
@@ -155,7 +155,7 @@ void ROS_messageRecivTask(void *pvParam)
     }
 }
 
-// ROS subscribe callback
+// ROS subscribe callback function
 void cmd_velocity_receiv(const geometry_msgs::Twist &cmdVel)
 {
     lastCmdVelRecivTime = (millis() / 1000);

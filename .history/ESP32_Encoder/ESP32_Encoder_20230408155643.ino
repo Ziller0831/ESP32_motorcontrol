@@ -110,14 +110,14 @@ void READ_ENC_Left()
 {
     if(digitalRead(L_ENC_A) == LOW){
         if(digitalRead(L_ENC_B) == LOW)
-            Encoder_L--;
-        else
             Encoder_L++;
+        else
+            Encoder_L--;
     } else{
         if(digitalRead(L_ENC_B) == LOW)
-            Encoder_L++;
-        else
             Encoder_L--;
+        else
+            Encoder_L++;
     }
 }
 
@@ -155,7 +155,7 @@ void ROS_messageRecivTask(void *pvParam)
     }
 }
 
-// ROS subscribe callback
+// ROS subscribe callback function
 void cmd_velocity_receiv(const geometry_msgs::Twist &cmdVel)
 {
     lastCmdVelRecivTime = (millis() / 1000);
@@ -228,7 +228,7 @@ void Motor_control(void *pvParam)
     }
 
     if (Right_PWM_Req > 0){
-        digitalWrite(INA2, HIGH);
+        digitalWrite(INA2, LOW);
         digitalWrite(INB2, LOW);
     } else if (Right_PWM_Req < 0){
         digitalWrite(INA2, LOW);

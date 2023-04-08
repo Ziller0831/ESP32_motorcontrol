@@ -100,9 +100,9 @@ void READ_ENC_Right()
             Encoder_R--;
   } else{                             // 反轉
         if(digitalRead(R_ENC_B) == LOW)
-            Encoder_R--;
-        else
             Encoder_R++;
+        else
+            Encoder_R--;
     }
 }
 
